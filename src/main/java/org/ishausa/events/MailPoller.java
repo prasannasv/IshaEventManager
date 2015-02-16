@@ -4,7 +4,7 @@
  */
 package org.ishausa.events;
 
-import com.google.code.samples.oauth2.OAuth2Authenticator;
+import org.ishausa.oauth.OAuth2Authenticator;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
