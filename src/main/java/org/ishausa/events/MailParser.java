@@ -1,18 +1,19 @@
 package org.ishausa.events;
 
+import com.google.common.base.Throwables;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import javax.mail.BodyPart;
-import javax.mail.Flags;
-import javax.mail.Message;
-import javax.mail.Multipart;
+import java.util.logging.Logger;
+import javax.mail.*;
 
 /**
  *
  * @author psriniv
  */
 public class MailParser implements MailPoller.MailListener {
+    private static final Logger log = Logger.getLogger(MailParser.class.getName());
 
     private static final String ISHA_EVENT_SUBJECT = "A New Event Has Been Generated";
 
@@ -34,19 +35,26 @@ public class MailParser implements MailPoller.MailListener {
 
     @Override
     public void onNewMail(Message m) {
-        System.out.println("Received new message: " + m);
         try {
             String subject = m.getSubject();
+            javax.mail.Address[] from = m.getFrom();
+            log.info("Received new message: Date: " + m.getReceivedDate() +
+                    ", from: " + from[0].toString() +
+                    ", subject: " + subject);
 
-            System.out.println("Subject: " + subject);
-            if (subject.contains(ISHA_EVENT_SUBJECT)) {
+            if (subject.contains(ISHA_EVENT_SUBJECT) &&
+                    "portal.usa@ishafoundation.org".equals(from[0].toString())) {
                 IshaEvent e = eventParser.parse(m);
-                notifyListeners(e);
+                if (e != null) {
+                    notifyListeners(e);
+                }
+            } else {
+                log.info("ignoring mail as either subject doesn't match an event creation or from address is different");
             }
 
             m.setFlag(Flags.Flag.SEEN, true);
         } catch (Exception e) {
-            System.err.println(e);
+            log.warning("Exception parsing event: " + Throwables.getStackTraceAsString(e));
         }
     }
 
@@ -74,11 +82,11 @@ public class MailParser implements MailPoller.MailListener {
             } else if (messageContent instanceof String) {
                 bodyContent = (String) messageContent;
             } else {
-                System.out.println("Unknown type for message content, just calling toString: " + messageContent.getClass());
+                log.warning("Unknown type for message content, just calling toString: " + messageContent.getClass());
                 bodyContent = messageContent.toString();
             }
 
-            System.out.println("Parsing message body into Event");
+            log.info("Parsing message body into Event");
 
             return parse(bodyContent);
         }
@@ -98,9 +106,9 @@ public class MailParser implements MailPoller.MailListener {
                 String value = line.substring(keyEnd + 1).trim();
                 eventProperties.put(key, value);
             }
-            System.out.println("Property map: " + eventProperties);
+            log.info("Property map: " + eventProperties);
 
-            return new IshaEvent(eventProperties);
+            return eventProperties.isEmpty() ? null : new IshaEvent(eventProperties);
         }
     }
 }

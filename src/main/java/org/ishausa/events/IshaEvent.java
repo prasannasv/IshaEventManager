@@ -3,6 +3,7 @@ package org.ishausa.events;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Country: USA
@@ -27,6 +28,7 @@ import java.util.Map;
  * @author psriniv
  */
 public class IshaEvent {
+    private static final Logger log = Logger.getLogger(IshaEvent.class.getName());
     public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
 
     public static enum EventProperty {
@@ -151,8 +153,8 @@ public class IshaEvent {
             if (endMeridian.isEmpty()) {
                 end.meridian = inferredMeridian;
             }
-            System.out.println("startMeridian: " + startMeridian + ", endMeridian: " + endMeridian + ", inferredMeridian: " + inferredMeridian);
-            System.out.println("duration: " + this);
+            log.info("startMeridian: " + startMeridian + ", endMeridian: " + endMeridian + ", inferredMeridian: " + inferredMeridian);
+            log.info("duration: " + this);
         }
 
         public void to24HourFormat() {
@@ -242,7 +244,7 @@ public class IshaEvent {
         }
 
         time = time.trim();
-        System.out.println("Time after inferring meridian: " + time);
+        log.info("Time after inferring meridian: " + time);
         ParseState state = ParseState.HOUR;
         int value = 0;
         for (int i = 0; i < time.length(); ) {

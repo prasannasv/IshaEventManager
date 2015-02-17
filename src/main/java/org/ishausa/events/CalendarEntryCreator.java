@@ -17,25 +17,26 @@ import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.google.api.services.calendar.model.Events;
+import com.google.common.base.Throwables;
+import org.ishausa.events.IshaEvent.EventSetting;
+
 import java.io.File;
 import java.io.FileInputStream;
-
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import org.ishausa.events.IshaEvent.EventSetting;
+import java.util.logging.Logger;
 
 /**
  *
  * @author psriniv
  */
 public class CalendarEntryCreator implements MailParser.EventListener {
+    private static final Logger log = Logger.getLogger(CalendarEntryCreator.class.getName());
+
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
     /** Directory to store user credentials. */
@@ -53,16 +54,23 @@ public class CalendarEntryCreator implements MailParser.EventListener {
         transport = GoogleNetHttpTransport.newTrustedTransport();
         dataStoreFactory = new FileDataStoreFactory(DATA_STORE_DIR);
         Credential credential = authorize(transport, dataStoreFactory);
+        credential.refreshToken();
+        account.setAccessToken(credential.getAccessToken());
         client = new Calendar.Builder(transport, JSON_FACTORY, credential)
                 .setApplicationName("IshaEventsManager")
                 .build();
+        /*Events events = client.events().list(account.getCalendarId()).execute();
+        List<Event> items = events.getItems();
+        for (Event item : items) {
+            System.out.println("Summary: " + item.getSummary());
+        }*/
     }
 
     /** Authorizes the installed application to access user's protected data. */
     private Credential authorize(HttpTransport httpTransport, DataStoreFactory dataStoreFactory) throws Exception {
         // load client secrets
         GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY,
-            new InputStreamReader(new FileInputStream("C:/Other/Personal/Prasanna/Code/Java/IshaEvents/client_secrets.json")));
+            new InputStreamReader(new FileInputStream("./client_secret.json")));
             //new InputStreamReader(CalendarEntryCreator.class.getResourceAsStream("C:/Other/Personal/Prasanna/Code/Java/IshaEvents/client_secrets.json")));
 
         // Set up authorization code flow.
@@ -75,6 +83,7 @@ public class CalendarEntryCreator implements MailParser.EventListener {
         Set<String> scopes = new HashSet<String>();
         scopes.add(CalendarScopes.CALENDAR);
         scopes.add(CalendarScopes.CALENDAR_READONLY);
+        scopes.add("https://mail.google.com/");
 
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
             httpTransport, JSON_FACTORY, clientSecrets, scopes)
@@ -86,23 +95,17 @@ public class CalendarEntryCreator implements MailParser.EventListener {
 
     @Override
     public void onNewEvent(IshaEvent ishaEvent) {
-        System.out.println("Received new event: " + ishaEvent);
+        log.info("Received new event: " + ishaEvent);
         if (!ishaEvent.isIshaKriyaEvent || ishaEvent.eventSetting == EventSetting.PRIVATE) {
-            System.out.println("Ignoring it since it is either not an IshaKriya event or is Private.");
+            log.info("Ignoring it since it is either not an IshaKriya event or is Private.");
             return;
         }
         try {
             Event event = createEvent(ishaEvent);
-            Event createdEvent = client.events().insert(account.getUser(), event).execute();
-            System.out.println("Event created: " + createdEvent);
-
-            /*Events events = client.events().list(account.getUser()).execute();
-            List<Event> items = events.getItems();
-            for (Event item : items) {
-                System.out.println("Summary: " + item.getSummary());
-            }*/
+            Event createdEvent = client.events().insert(account.getCalendarId(), event).execute();
+            log.info("Event created: " + createdEvent);
         } catch (Exception e) {
-            System.err.println(e);
+            log.warning("Exception creating event: " + Throwables.getStackTraceAsString(e));
         }
     }
 

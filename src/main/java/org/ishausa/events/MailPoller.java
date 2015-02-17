@@ -4,12 +4,14 @@
  */
 package org.ishausa.events;
 
+import com.google.common.base.Throwables;
 import org.ishausa.oauth.OAuth2Authenticator;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import javax.mail.Folder;
 import javax.mail.Message;
 import javax.mail.Store;
@@ -19,6 +21,8 @@ import javax.mail.Store;
  * @author psriniv
  */
 public class MailPoller {
+    private static final Logger log = Logger.getLogger(MailPoller.class.getName());
+
     private static final long POLLING_FREQUENCY_MINUTES = 15;
     private static final String INBOX = "inbox";
     private static final String GMAIL_IMAP_HOST = "imap.gmail.com";
@@ -38,12 +42,12 @@ public class MailPoller {
         this.account = account;
         runCountLatch = new CountDownLatch(runs);
 
-        System.out.println("Initializing OAuth2 Authenticator");
+        log.info("Initializing OAuth2 Authenticator");
         OAuth2Authenticator.initialize();
     }
 
     public void start() {
-        System.out.println("Scheduling mail checker task");
+        log.info("Scheduling mail checker task");
         pollerThread.scheduleWithFixedDelay(new MailCheckTask(), 0, POLLING_FREQUENCY_MINUTES, TimeUnit.MINUTES);
     }
 
@@ -82,18 +86,18 @@ public class MailPoller {
         @Override
         public void run() {
             try {
-                System.out.println("Beginning run of Mail Check Task");
+                log.info("Beginning run of Mail Check Task");
 
                 Store store = OAuth2Authenticator.connectToImap(GMAIL_IMAP_HOST, GMAIL_IMAP_PORT,
-                        account.getUser(), account.getOAuthToken(), false);
+                        account.getUser(), account.getAccessToken(), false);
 
                 Folder inbox = store.getFolder(INBOX);
                 inbox.open(Folder.READ_WRITE);
-                System.out.println("inbox folder opened for read. inbox: " + inbox);
+                log.info("inbox folder opened for read. inbox: " + inbox);
 
                 int totalMessagesCount = inbox.getMessageCount();
                 int unreadMessagesCount = inbox.getUnreadMessageCount();
-                System.out.println("Total messages: " + totalMessagesCount + ", unread messages: " + unreadMessagesCount);
+                log.info("Total messages: " + totalMessagesCount + ", unread messages: " + unreadMessagesCount);
 
                 Message[] unreadMessages = inbox.getMessages(totalMessagesCount - unreadMessagesCount + 1, totalMessagesCount);
                 for (Message m : unreadMessages) {
@@ -102,10 +106,10 @@ public class MailPoller {
 
                 inbox.close(false);
                 store.close();
-            } catch (Exception e) {
-                System.err.println(e);
+            } catch (Throwable t) {
+                log.warning("Exception while checking mail: " + Throwables.getStackTraceAsString(t));
             } finally {
-                System.out.println("Finished run");
+                log.info("Finished run");
                 runCountLatch.countDown();
             }
         }

@@ -6,12 +6,10 @@ package org.ishausa.events;
  */
 public interface Account {
     String getUser();
-    
-    String getOAuthToken();
-    
-    String getOAuthRefreshToken();
-    
-    String getOAuthClientId();
-    
-    String getOAuthClientSecret();
+
+    String getCalendarId();
+
+    String getAccessToken();
+
+    void setAccessToken(String accessToken);
 }
